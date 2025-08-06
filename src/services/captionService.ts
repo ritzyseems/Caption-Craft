@@ -1,6 +1,5 @@
 import { Mood } from '../types';
 
-// ⚠️ DON'T push this code to public GitHub repos unless you hide the key properly
 const OPENAI_API_KEY = import.meta.env.VITE_OPENAI_API_KEY;
 
 export const generateCaptions = async (mood: string, imageContext?: string): Promise<string[]> => {
