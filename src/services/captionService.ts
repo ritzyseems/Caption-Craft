@@ -1,82 +1,43 @@
 import { Mood } from '../types';
 
-const moodTemplates: Record<string, string[]> = {
-  happy: [
-    "Living my best life! ✨",
-    "Good vibes only 🌟",
-    "Happiness looks good on me 😊",
-    "Spreading sunshine wherever I go ☀️",
-    "Choose joy, always 💫"
-  ],
-  aesthetic: [
-    "Chasing golden hour vibes ✨",
-    "Minimalist moments 🤍",
-    "Soft life, softer energy 💭",
-    "Beauty in simplicity 🌸",
-    "Aesthetic appreciation activated 📸"
-  ],
-  savage: [
-    "Main character energy 💅",
-    "Sorry, can't relate to basic 🔥",
-    "Confidence level: unbothered 😎",
-    "Serving looks, not explanations 💋",
-    "Too glam to give a damn ✨"
-  ],
-  travel: [
-    "Wanderlust and city dust 🗺️",
-    "Adventure awaits around every corner 🌍",
-    "Collecting moments, not things ✈️",
-    "Lost in the right direction 🧭",
-    "Making memories across the globe 📍"
-  ],
-  romantic: [
-    "Love is in the details 💕",
-    "Heart full of dreams 💖",
-    "Sweet moments like these 🌹",
-    "Romance isn't dead, it's just evolved 💫",
-    "Fairy tale vibes only ✨"
-  ],
-  chill: [
-    "Just vibing through life 🌊",
-    "Slow living, fast loving 🍃",
-    "Peace, love, and good energy 🕊️",
-    "Taking life one breath at a time 💨",
-    "Calm mind, wild heart 🌙"
-  ],
-  motivational: [
-    "Progress over perfection 💪",
-    "Today's struggles are tomorrow's strengths 🌟",
-    "Dream big, work hard, stay humble 🚀",
-    "Your only limit is you 🔥",
-    "Turning dreams into plans 📋"
-  ],
-  food: [
-    "Food is my love language 🍕",
-    "Eating my way to happiness 😋",
-    "Good food, good mood 🍽️",
-    "Calories don't count on weekends 🍰",
-    "Fueling up for greatness 🥗"
-  ]
-};
+// ⚠️ DON'T push this code to public GitHub repos unless you hide the key properly
+const OPENAI_API_KEY = import.meta.env.VITE_OPENAI_API_KEY;
 
 export const generateCaptions = async (mood: string, imageContext?: string): Promise<string[]> => {
-  // Simulate API delay
-  await new Promise(resolve => setTimeout(resolve, 1500));
-  
-  const templates = moodTemplates[mood] || moodTemplates.happy;
-  const selectedCaptions = templates.slice(0, 4);
-  
-  // Add a dynamic caption based on context
-  const contextCaptions = [
-    `${mood.charAt(0).toUpperCase() + mood.slice(1)} vibes captured perfectly 📸`,
-    `This moment deserves all the ${mood} energy ✨`,
-    `Living that ${mood} lifestyle 🌟`,
-    `${mood.charAt(0).toUpperCase() + mood.slice(1)} mood: activated 🔥`
-  ];
-  
-  selectedCaptions.push(contextCaptions[Math.floor(Math.random() * contextCaptions.length)]);
-  
-  return selectedCaptions;
+  const prompt = `
+Generate 5 short, fun, and creative Instagram captions for the mood: "${mood}".
+${imageContext ? `This is the image context: "${imageContext}".` : ''}
+Keep them trendy and suitable for social media.
+Avoid emojis and hashtags.
+Return them as a plain list, no extra commentary.
+`;
+
+  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${OPENAI_API_KEY}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'gpt-3.5-turbo',
+      messages: [{ role: 'user', content: prompt }],
+    }),
+  });
+
+  if (!response.ok) {
+    console.error('OpenAI error:', await response.text());
+    throw new Error('Failed to fetch captions');
+  }
+
+  const data = await response.json();
+  const content = data.choices?.[0]?.message?.content || '';
+
+  const captions = content
+    .split('\n')
+    .map((line: string) => line.replace(/^\d+[\).\s]*/, '').trim())
+    .filter(Boolean);
+
+  return captions;
 };
 
 export const moods: Mood[] = [
