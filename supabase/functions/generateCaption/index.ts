@@ -1,35 +1,49 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
+// Mood-based prompt templates for enhanced caption generation
+const MOOD_PROMPTS = {
+  happy: "Create a joyful, upbeat caption that radiates positivity and happiness",
+  aesthetic: "Generate an artistic, beautiful caption with sophisticated and dreamy vibes", 
+  savage: "Write a bold, confident caption with attitude and fierce energy",
+  travel: "Craft an adventurous caption about exploration and wanderlust",
+  romantic: "Create a loving, affectionate caption full of warmth and romance",
+  chill: "Write a relaxed, peaceful caption with laid-back vibes",
+  motivational: "Generate an inspiring, empowering caption that motivates and uplifts",
+  food: "Create a delicious, mouth-watering caption about tasty experiences"
+};
+
+interface CaptionRequest {
+  imageUrl?: string;
+  imageBase64?: string;
+  mood: keyof typeof MOOD_PROMPTS;
+}
+
 serve(async (req) => {
   try {
-    const { imageUrl, mood } = await req.json();
-
-    // Call Hugging Face BLIP model for image captioning
-    const response = await fetch(
-      "https://api-inference.huggingface.co/models/Salesforce/blip-image-captioning-base",
-      {
-        method: "POST",
+    // Handle CORS for frontend requests
+    if (req.method === 'OPTIONS') {
+      return new Response('ok', {
         headers: {
-          Authorization: `Bearer ${Deno.env.get("HF_API_KEY")}`, // stored in Supabase secrets
-          "Content-Type": "application/json",
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'POST, OPTIONS',
+          'Access-Control-Allow-Headers': 'Content-Type, Authorization',
         },
-        body: JSON.stringify({ inputs: imageUrl }),
-      }
-    );
+      });
+    }
 
-    const result = await response.json();
-    const baseCaption = result[0]?.generated_text || "No caption found";
+    const { imageUrl, imageBase64, mood }: CaptionRequest = await req.json();
+    
+    if (!mood || !MOOD_PROMPTS[mood]) {
+      throw new Error('Invalid or missing mood parameter');
+    }
 
-    // Apply mood twist
-    const finalCaption = `${baseCaption} (expressed in a ${mood} mood)`;
+    // Prepare image data for Hugging Face API
+    let imageData;
+    if (imageBase64) {
+      imageData = imageBase64;
+    } else if (imageUrl) {
+      // Fetch image and convert to base64
+      const imageResponse = await fetch(imageUrl);
+      const imageBuffer = await imageResponse.arrayBuffer();
+      imageData = btoa(String.fromCharCode(...new Uint8A
 
-    return new Response(JSON.stringify({ caption: finalCaption }), {
-      headers: { "Content-Type": "application/json" },
-    });
-  } catch (err) {
-    return new Response(JSON.stringify({ error: err.message }), {
-      status: 500,
-      headers: { "Content-Type": "application/json" },
-    });
-  }
-});
