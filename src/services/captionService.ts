@@ -1,51 +1,67 @@
 import { Mood } from '../types';
 
-const OPENAI_API_KEY = import.meta.env.VITE_OPENAI_API_KEY;
+// Updated service to use Hugging Face via Supabase Edge Function
+export const generateCaptions = async (
+  mood: string, 
+  imageFile?: File,
+  imageUrl?: string
+): Promise<string[]> => {
+  try {
+    // Convert image file to base64 if provided
+    let imageBase64: string | undefined;
+    if (imageFile) {
+      imageBase64 = await fileToBase64(imageFile);
+    }
 
-export const generateCaptions = async (mood: string, imageContext?: string): Promise<string[]> => {
-  const prompt = `
-Generate 5 short, fun, and creative Instagram captions for the mood: "${mood}".
-${imageContext ? `This is the image context: "${imageContext}".` : ''}
-Keep them trendy and suitable for social media.
-Avoid emojis and hashtags.
-Return them as a plain list, no extra commentary.
-`;
+    // Call your Supabase Edge Function
+    const response = await fetch(
+      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generateCaption`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+        },
+        body: JSON.stringify({
+          mood,
+          imageBase64: imageBase64?.split(','), // Remove data:image/jpeg;base64, prefix
+          imageUrl
+        }),
+      }
+    );
 
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${OPENAI_API_KEY}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'gpt-3.5-turbo',
-      messages: [{ role: 'user', content: prompt }],
-    }),
-  });
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || 'Failed to generate captions');
+    }
 
-  if (!response.ok) {
-    console.error('OpenAI error:', await response.text());
-    throw new Error('Failed to fetch captions');
+    const data = await response.json();
+    
+    if (!data.success) {
+      throw new Error(data.error || 'Caption generation failed');
+    }
+
+    return data.captions || [];
+
+  } catch (error) {
+    console.error('Error generating captions:', error);
+    
+    // Fallback captions based on mood
+    return getFallbackCaptions(mood);
   }
-
-  const data = await response.json();
-  const content = data.choices?.[0]?.message?.content || '';
-
-  const captions = content
-    .split('\n')
-    .map((line: string) => line.replace(/^\d+[\).\s]*/, '').trim())
-    .filter(Boolean);
-
-  return captions;
 };
 
-export const moods: Mood[] = [
-  { id: 'happy', name: 'Happy', emoji: '😊', description: 'Joyful and upbeat' },
-  { id: 'aesthetic', name: 'Aesthetic', emoji: '🌸', description: 'Artistic and beautiful' },
-  { id: 'savage', name: 'Savage', emoji: '💅', description: 'Bold and confident' },
-  { id: 'travel', name: 'Travel', emoji: '✈️', description: 'Adventure and exploration' },
-  { id: 'romantic', name: 'Romantic', emoji: '💕', description: 'Love and affection' },
-  { id: 'chill', name: 'Chill', emoji: '🌊', description: 'Relaxed and peaceful' },
-  { id: 'motivational', name: 'Motivational', emoji: '💪', description: 'Inspiring and empowering' },
-  { id: 'food', name: 'Food', emoji: '🍕', description: 'Delicious and tasty' }
-];
+// Alternative direct Hugging Face API approach (if you prefer client-side calls)
+export const generateCaptionsDirectHF = async (
+  mood: string,
+  imageFile: File
+): Promise<string[]> => {
+  const HF_TOKEN = import.meta.env.VITE_HF_TOKEN;
+  
+  if (!HF_TOKEN) {
+    throw new Error('Hugging Face API token not configured');
+  }
+
+  try {
+    // Convert image to blob for HF API
+    const imageBlob = new Blob([imageFile], { type: imageFile.type 
