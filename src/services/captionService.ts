@@ -13,55 +13,89 @@ export const generateCaptions = async (
       imageBase64 = await fileToBase64(imageFile);
     }
 
-    // Call your Supabase Edge Function
-    const response = await fetch(
-      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generateCaption`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-        },
-        body: JSON.stringify({
-          mood,
-          imageBase64: imageBase64?.split(','), // Remove data:image/jpeg;base64, prefix
-          imageUrl
-        }),
-      }
-    );
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || 'Failed to generate captions');
-    }
-
-    const data = await response.json();
-    
-    if (!data.success) {
-      throw new Error(data.error || 'Caption generation failed');
-    }
-
-    return data.captions || [];
+    // For now, return fallback captions until we set up Hugging Face properly
+    return getFallbackCaptions(mood);
 
   } catch (error) {
     console.error('Error generating captions:', error);
-    
-    // Fallback captions based on mood
     return getFallbackCaptions(mood);
   }
 };
 
-// Alternative direct Hugging Face API approach (if you prefer client-side calls)
-export const generateCaptionsDirectHF = async (
-  mood: string,
-  imageFile: File
-): Promise<string[]> => {
-  const HF_TOKEN = import.meta.env.VITE_HF_TOKEN;
-  
-  if (!HF_TOKEN) {
-    throw new Error('Hugging Face API token not configured');
-  }
+// Helper function to convert File to base64
+const fileToBase64 = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = error => reject(error);
+  });
+};
 
-  try {
-    // Convert image to blob for HF API
-    const imageBlob = new Blob([imageFile], { type: imageFile.type 
+// Fallback captions when API fails
+const getFallbackCaptions = (mood: string): string[] => {
+  const fallbacks: Record<string, string[]> = {
+    happy: [
+      "Living my best life ✨",
+      "Pure happiness captured",
+      "Smiling through it all 😊",
+      "Joy in every moment"
+    ],
+    aesthetic: [
+      "Dreamy vibes only 🌸",
+      "Artistic perfection",
+      "Captured in golden light ✨",
+      "Ethereal moments"
+    ],
+    savage: [
+      "Confidence level: unbothered 💅",
+      "Serving main character energy",
+      "Effortlessly slaying 🔥",
+      "Unbothered and unstoppable"
+    ],
+    travel: [
+      "Adventure mode: ON ✈️",
+      "Wanderlust fulfilled",
+      "Making memories worldwide 🗺️",
+      "Passport ready for more"
+    ],
+    romantic: [
+      "Love fills the air 💕",
+      "Heart completely full",
+      "Perfect moment together ❤️",
+      "Romance at its finest"
+    ],
+    chill: [
+      "Good vibes only 🌊",
+      "Taking it easy",
+      "Peaceful moments ☮️",
+      "Zen mode activated"
+    ],
+    motivational: [
+      "You got this! 💪",
+      "Dream big, achieve bigger",
+      "Unstoppable energy ⭐",
+      "Making it happen"
+    ],
+    food: [
+      "Taste of heaven 🍕",
+      "Foodie paradise found",
+      "Delicious moments 😋",
+      "Savoring every bite"
+    ]
+  };
+
+  return fallbacks[mood] || ["Perfect moment captured ✨"];
+};
+
+// Your existing moods array
+export const moods: Mood[] = [
+  { id: 'happy', name: 'Happy', emoji: '😊', description: 'Joyful and upbeat' },
+  { id: 'aesthetic', name: 'Aesthetic', emoji: '🌸', description: 'Artistic and beautiful' },
+  { id: 'savage', name: 'Savage', emoji: '💅', description: 'Bold and confident' },
+  { id: 'travel', name: 'Travel', emoji: '✈️', description: 'Adventure and exploration' },
+  { id: 'romantic', name: 'Romantic', emoji: '💕', description: 'Love and affection' },
+  { id: 'chill', name: 'Chill', emoji: '🌊', description: 'Relaxed and peaceful' },
+  { id: 'motivational', name: 'Motivational', emoji: '💪', description: 'Inspiring and empowering' },
+  { id: 'food', name: 'Food', emoji: '🍕', description: 'Delicious and tasty' }
+];
